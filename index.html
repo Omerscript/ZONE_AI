@@ -2,7 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
 <title>ZONE AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,11 +32,13 @@
   --green: #16a34a; --red: #dc2626; --yellow: #ca8a04;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; overflow: hidden; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
 body {
   font-family: 'Cairo', -apple-system, sans-serif;
   background: var(--bg); color: var(--text);
   font-size: 15px; line-height: 1.6;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-overflow-scrolling: touch;
 }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, textarea { font-family: inherit; }
@@ -55,7 +58,14 @@ input, textarea { font-family: inherit; }
 @keyframes bnc { 0%, 80%, 100% { transform: scale(0.5); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
 @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 
-#app { display: flex; height: 100vh; }
+#app {
+  display: flex; height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
 
 /* SIDEBAR */
 #sidebar {
@@ -80,7 +90,7 @@ input, textarea { font-family: inherit; }
   white-space: nowrap;
 }
 .side-btn:hover { background: var(--bg-hover); border-color: var(--border-hi); }
-.chats-wrap { flex: 1; overflow-y: auto; padding: 4px 8px; }
+.chats-wrap { flex: 1; overflow-y: auto; padding: 4px 8px; -webkit-overflow-scrolling: touch; }
 .chats-wrap::-webkit-scrollbar { width: 5px; }
 .chats-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .chat-row {
@@ -110,7 +120,7 @@ input, textarea { font-family: inherit; }
 .hdr-btn { padding: 6px 10px; border-radius: 8px; font-size: 16px; color: var(--text-dim); }
 .hdr-btn:hover { background: var(--bg-hover); color: var(--text); }
 .hdr-title { font-size: 14px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#messages { flex: 1; overflow-y: auto; padding: 24px 20px 8px; display: flex; flex-direction: column; gap: 24px; }
+#messages { flex: 1; overflow-y: auto; padding: 24px 20px 8px; display: flex; flex-direction: column; gap: 24px; -webkit-overflow-scrolling: touch; }
 #messages::-webkit-scrollbar { width: 6px; }
 #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
@@ -476,13 +486,18 @@ input, textarea { font-family: inherit; }
 .chat-menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
 
 @media (max-width: 768px) {
-  #sidebar { position: fixed; right: 0; top: 0; height: 100vh; z-index: 100; }
+  #sidebar { position: fixed; right: 0; top: 0; height: 100vh; height: 100dvh; z-index: 100; box-shadow: -4px 0 20px rgba(0,0,0,0.5); }
   #sidebar.collapsed { transform: translateX(100%); width: 260px; }
   .suggestions { grid-template-columns: 1fr; }
   #input-area { padding: 6px 12px 12px; }
+  #messages { padding: 16px 12px 8px; }
   .stats-grid { grid-template-columns: 1fr; }
   .w-logo-big { font-size: 32px; }
   .w-orb { width: 72px; height: 72px; font-size: 34px; }
+  .set-body { padding: 16px 12px 40px; }
+  .login-card { padding: 28px 20px; }
+  .msg { gap: 10px; }
+  .m-avatar { width: 26px; height: 26px; font-size: 12px; }
 }
 </style>
 </head>
@@ -925,7 +940,6 @@ let state = {
   sharedView: false
 };
 
-/* ✅ بناء روابط متوافقة مع GitHub Pages */
 function buildChatUrl(chatId) {
   if (USE_HASH_ROUTING) {
     return location.pathname + location.search + '#/chat/' + chatId;
@@ -940,7 +954,6 @@ function buildHomeUrl() {
   return '/';
 }
 
-/* ✅ استخراج chatId من الرابط (path أو hash) */
 function getChatIdFromUrl() {
   let m = location.pathname.match(/\/chat\/(\d+)/);
   if (m) return m[1];
@@ -949,7 +962,6 @@ function getChatIdFromUrl() {
   return null;
 }
 
-/* ✅ إصلاح رابط المشاركة — يضيف /t/slug إذا ناقص */
 function fixShareUrl(url) {
   if (!url) return url;
   if (url.includes('/t/')) return url;
@@ -1094,73 +1106,83 @@ function buildWelcome() {
 
 /* INIT */
 function init() {
-  document.documentElement.setAttribute('data-theme', state.theme);
-  renderUser();
+  try {
+    document.documentElement.setAttribute('data-theme', state.theme);
+    renderUser();
 
-  // ✅ فحص رابط المشاركة
-  const fullUrl = location.href;
-  const shareMatch = fullUrl.match(/[#&?\/]share=([A-Za-z0-9_\-]+)/);
-  if (shareMatch) {
-    loadSharedView(shareMatch[1]);
-    return;
-  }
+    // ✅ فحص رابط المشاركة
+    const fullUrl = location.href;
+    const shareMatch = fullUrl.match(/[#&?\/]share=([A-Za-z0-9_\-]+)/);
+    if (shareMatch) {
+      loadSharedView(shareMatch[1]);
+      return;
+    }
 
-  if (auth.token) {
-    loadServerChats().then(() => {
+    if (auth.token) {
+      loadServerChats().then(() => {
+        const chatId = getChatIdFromUrl();
+        if (chatId) {
+          const key = 'srv_' + chatId;
+          if (state.chats[key]) {
+            switchChat(key);
+            return;
+          }
+        }
+      }).catch(() => {
+        createEmptyLocalChat();
+        renderList();
+      });
+    } else {
+      state.isGuest = true;
+      startGuestMode();
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (document.getElementById('ui-modal').classList.contains('show')) uiClose();
+        else if (document.getElementById('guest-hint-overlay').classList.contains('show')) closeGuestHint();
+        else if (document.getElementById('edit-modal').classList.contains('show')) closeEditModal();
+        else if (document.getElementById('file-viewer').classList.contains('show')) closeFileViewer();
+        else if (document.getElementById('share-modal').classList.contains('show')) closeShareModal();
+        else if (document.getElementById('search-overlay').classList.contains('show')) closeSearch();
+        else if (document.getElementById('login-page').classList.contains('show')) closeLogin();
+        else if (document.getElementById('settings-page').classList.contains('show')) {
+          if (document.querySelector('.subpage.show')) showSub('main');
+          else closeSettings();
+        }
+        hideChatMenu();
+      }
+    });
+
+    document.getElementById('user-input').addEventListener('paste', handlePaste);
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#chat-menu') && !e.target.closest('.chat-row')) hideChatMenu();
+    });
+
+    window.addEventListener('popstate', function() {
+      if (state.sharedView) return;
       const chatId = getChatIdFromUrl();
       if (chatId) {
         const key = 'srv_' + chatId;
         if (state.chats[key]) {
-          switchChat(key);
-          return;
+          state.currentChatId = key;
+          loadMsgs(key).then(() => {
+            renderChat(key);
+            renderList();
+          });
         }
       }
-    }).catch(() => {
-      createEmptyLocalChat();
-      renderList();
     });
-  } else {
-    state.isGuest = true;
-    startGuestMode();
+  } catch (e) {
+    console.error('Init error:', e);
+    // ضمان عرض الصفحة الرئيسية حتى لو صار خطأ
+    try {
+      state.isGuest = true;
+      startGuestMode();
+    } catch (e2) {
+      console.error('Fallback failed:', e2);
+    }
   }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      if (document.getElementById('ui-modal').classList.contains('show')) uiClose();
-      else if (document.getElementById('guest-hint-overlay').classList.contains('show')) closeGuestHint();
-      else if (document.getElementById('edit-modal').classList.contains('show')) closeEditModal();
-      else if (document.getElementById('file-viewer').classList.contains('show')) closeFileViewer();
-      else if (document.getElementById('share-modal').classList.contains('show')) closeShareModal();
-      else if (document.getElementById('search-overlay').classList.contains('show')) closeSearch();
-      else if (document.getElementById('login-page').classList.contains('show')) closeLogin();
-      else if (document.getElementById('settings-page').classList.contains('show')) {
-        if (document.querySelector('.subpage.show')) showSub('main');
-        else closeSettings();
-      }
-      hideChatMenu();
-    }
-  });
-
-  document.getElementById('user-input').addEventListener('paste', handlePaste);
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('#chat-menu') && !e.target.closest('.chat-row')) hideChatMenu();
-  });
-
-  // ✅ دعم زر الرجوع
-  window.addEventListener('popstate', function() {
-    if (state.sharedView) return;
-    const chatId = getChatIdFromUrl();
-    if (chatId) {
-      const key = 'srv_' + chatId;
-      if (state.chats[key]) {
-        state.currentChatId = key;
-        loadMsgs(key).then(() => {
-          renderChat(key);
-          renderList();
-        });
-      }
-    }
-  });
 }
 
 /* SHARED VIEW */
