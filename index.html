@@ -1230,7 +1230,10 @@ async function startGuestMode() {
 }
 
 function handlePaste(e) {
-  if (state.isGuest) { e.preventDefault(); showToast('🔒 اللصق متاح للمسجلين فقط'); return; }
+  // ✅ الزوار: لصق عادي — يكتب النص مباشرة بدون تحويل
+  if (state.isGuest) return;
+  
+  // ✅ المسجلون: النص الطويل يتحول لملف
   const text = (e.clipboardData || window.clipboardData).getData('text');
   if (!text) return;
   const lineCount = text.split('\n').length;
@@ -1246,6 +1249,7 @@ function handlePaste(e) {
     };
     reader.readAsDataURL(blob);
   }
+  // النص القصير: لصق عادي
 }
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
@@ -2661,13 +2665,47 @@ function guessFilename(lang, code) {
 
 function copyCode(btn) {
   const block = btn.closest('.code-block');
-  const code = block.querySelector('pre code').innerText;
-  navigator.clipboard.writeText(code).then(() => {
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-check"></i> تم';
-    btn.classList.add('success-anim');
-    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('success-anim'); }, 1500);
-  }).catch(() => showToast('❌ فشل'));
+  const codeEl = block.querySelector('pre code');
+  if (!codeEl) return;
+  
+  // ✅ textContent بدل innerText — يحفظ كل الأسطر
+  const code = codeEl.textContent;
+  
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check"></i> تم';
+      btn.classList.add('success-anim');
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('success-anim'); }, 1500);
+    }).catch(() => {
+      copyFallback(code, btn);
+    });
+  } else {
+    copyFallback(code, btn);
+  }
+}
+
+function copyFallback(code, btn) {
+  const textarea = document.createElement('textarea');
+  textarea.value = code;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check"></i> تم';
+      btn.classList.add('success-anim');
+      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('success-anim'); }, 1500);
+    } else {
+      showToast('✅ تم النسخ');
+    }
+  } catch (err) {
+    showToast('❌ فشل النسخ');
+  }
+  document.body.removeChild(textarea);
 }
 
 function downloadCode(btn, filename) {
@@ -2683,8 +2721,16 @@ function downloadCode(btn, filename) {
 
 function copyMsg(btn) {
   const c = btn.closest('.m-body').querySelector('.m-content');
-  navigator.clipboard.writeText(c.innerText).then(() => showToast('✅ تم النسخ'))
-    .catch(() => showToast('❌ فشل'));
+  if (!c) return;
+  // ✅ textContent بدل innerText
+  const text = c.textContent || c.innerText;
+  
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => showToast('✅ تم النسخ'))
+      .catch(() => copyFallback(text, null));
+  } else {
+    copyFallback(text, null);
+  }
 }
 
 function openFileViewer(key) {
