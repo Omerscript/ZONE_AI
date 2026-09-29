@@ -2587,20 +2587,31 @@ function escapeAttr(t) { return (t || '').replace(/&/g, '&amp;').replace(/"/g, '
 function renderMD(text) {
   if (!text) return '';
   let html = escapeHtml(text);
+  
+  // ✅ نحفظ كتل الكود في مصفوفة عشان ما تتأثر بالتحويلات اللاحقة
+  const codeBlocks = [];
+  
   html = html.replace(/```(\w+)?\n?([\s\S]*?)```/g, function(_, lang, code) {
-  const l = (lang || 'text').toLowerCase();
-  const codeText = code.replace(/\n$/, '');
-  const fname = guessFilename(l, codeText);
-  return '<div class="code-block" data-lang="' + l + '">' +
-     '<div class="code-header">' +
-     '<span class="code-lang">' + l + '</span>' +
-     '<span class="code-name">' + escapeHtml(fname) + '</span>' +
-     '<div class="code-actions">' +
-     '<button class="code-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> نسخ</button>' +
-     '<button class="code-btn" onclick="downloadCode(this, \'' + escapeAttr(fname) + '\')"><i class="fas fa-download"></i> تحميل</button>' +
-     '</div></div>' +
-     '<pre><code>' + escapeHtml(codeText) + '</code></pre></div>';
-});
+    const l = (lang || 'text').toLowerCase();
+    const codeText = code.replace(/\n$/, '');
+    const fname = guessFilename(l, codeText);
+    // نحفظ الكود الأصلي كـ base64 (لزر النسخ)
+    const codeB64 = btoa(unescape(encodeURIComponent(codeText)));
+    const blockHTML = '<div class="code-block" data-lang="' + l + '" data-code-b64="' + codeB64 + '">' +
+      '<div class="code-header">' +
+      '<span class="code-lang">' + l + '</span>' +
+      '<span class="code-name">' + escapeHtml(fname) + '</span>' +
+      '<div class="code-actions">' +
+      '<button class="code-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> نسخ</button>' +
+      '<button class="code-btn" onclick="downloadCode(this, \'' + escapeAttr(fname) + '\')"><i class="fas fa-download"></i> تحميل</button>' +
+      '</div></div>' +
+      '<pre><code>' + escapeHtml(codeText) + '</code></pre></div>';
+    // نخزن مكان مؤقت
+    const placeholder = '\u0000CODEBLOCK' + codeBlocks.length + '\u0000';
+    codeBlocks.push(blockHTML);
+    return placeholder;
+  });
+  
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
@@ -2624,6 +2635,12 @@ function renderMD(text) {
   html = html.replace(/<p>\s*<\/p>/g, '');
   html = html.replace(/<p>(<h[1-3]|<ul|<div class="code-block"|<blockquote|<table)/g, '$1');
   html = html.replace(/(<\/h[1-3]>|<\/ul>|<\/div>|<\/blockquote>|<\/table>)\s*<\/p>/g, '$1');
+  
+  // ✅ نرجع كتل الكود لمكانها
+  codeBlocks.forEach((blockHTML, i) => {
+    html = html.replace('\u0000CODEBLOCK' + i + '\u0000', blockHTML);
+  });
+  
   return html;
 }
 
