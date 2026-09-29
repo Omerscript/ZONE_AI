@@ -2588,19 +2588,19 @@ function renderMD(text) {
   if (!text) return '';
   let html = escapeHtml(text);
   html = html.replace(/```(\w+)?\n?([\s\S]*?)```/g, function(_, lang, code) {
-    const l = (lang || 'text').toLowerCase();
-    const codeText = code.replace(/\n$/, '');
-    const fname = guessFilename(l, codeText);
-    return '<div class="code-block" data-lang="' + l + '">' +
-      '<div class="code-header">' +
-      '<span class="code-lang">' + l + '</span>' +
-      '<span class="code-name">' + escapeHtml(fname) + '</span>' +
-      '<div class="code-actions">' +
-      '<button class="code-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> نسخ</button>' +
-      '<button class="code-btn" onclick="downloadCode(this, \'' + escapeAttr(fname) + '\')"><i class="fas fa-download"></i> تحميل</button>' +
-      '</div></div>' +
-      '<pre><code>' + escapeHtml(codeText) + '</code></pre></div>';
-  });
+  const l = (lang || 'text').toLowerCase();
+  const codeText = code.replace(/\n$/, '');
+  const fname = guessFilename(l, codeText);
+  return '<div class="code-block" data-lang="' + l + '">' +
+     '<div class="code-header">' +
+     '<span class="code-lang">' + l + '</span>' +
+     '<span class="code-name">' + escapeHtml(fname) + '</span>' +
+     '<div class="code-actions">' +
+     '<button class="code-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> نسخ</button>' +
+     '<button class="code-btn" onclick="downloadCode(this, \'' + escapeAttr(fname) + '\')"><i class="fas fa-download"></i> تحميل</button>' +
+     '</div></div>' +
+     '<pre><code>' + escapeHtml(codeText) + '</code></pre></div>';
+});
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
@@ -2665,11 +2665,25 @@ function guessFilename(lang, code) {
 
 function copyCode(btn) {
   const block = btn.closest('.code-block');
-  const codeEl = block.querySelector('pre code');
-  if (!codeEl) return;
+  if (!block) return;
   
-  // ✅ textContent بدل innerText — يحفظ كل الأسطر
-  const code = codeEl.textContent;
+  // ✅ اقرأ الكود من data-attribute (كامل بدون فقدان)
+  let code = '';
+  try {
+    const b64 = block.getAttribute('data-code-b64') || '';
+    if (b64) {
+      code = decodeURIComponent(escape(atob(b64)));
+    } else {
+      // fallback: من textContent
+      const codeEl = block.querySelector('pre code');
+      code = codeEl ? codeEl.textContent : '';
+    }
+  } catch (e) {
+    const codeEl = block.querySelector('pre code');
+    code = codeEl ? codeEl.textContent : '';
+  }
+  
+  if (!code) return;
   
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(code).then(() => {
@@ -2689,18 +2703,25 @@ function copyFallback(code, btn) {
   const textarea = document.createElement('textarea');
   textarea.value = code;
   textarea.style.position = 'fixed';
+  textarea.style.top = '0';
+  textarea.style.left = '0';
   textarea.style.opacity = '0';
   document.body.appendChild(textarea);
+  textarea.focus();
   textarea.select();
   try {
-    document.execCommand('copy');
-    if (btn) {
-      const orig = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-check"></i> تم';
-      btn.classList.add('success-anim');
-      setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('success-anim'); }, 1500);
+    const ok = document.execCommand('copy');
+    if (ok) {
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> تم';
+        btn.classList.add('success-anim');
+        setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('success-anim'); }, 1500);
+      } else {
+        showToast('✅ تم النسخ');
+      }
     } else {
-      showToast('✅ تم النسخ');
+      showToast('❌ فشل النسخ');
     }
   } catch (err) {
     showToast('❌ فشل النسخ');
@@ -2710,7 +2731,22 @@ function copyFallback(code, btn) {
 
 function downloadCode(btn, filename) {
   const block = btn.closest('.code-block');
-  const code = block.querySelector('pre code').innerText;
+  if (!block) return;
+  
+  let code = '';
+  try {
+    const b64 = block.getAttribute('data-code-b64') || '';
+    if (b64) {
+      code = decodeURIComponent(escape(atob(b64)));
+    } else {
+      const codeEl = block.querySelector('pre code');
+      code = codeEl ? codeEl.textContent : '';
+    }
+  } catch (e) {
+    const codeEl = block.querySelector('pre code');
+    code = codeEl ? codeEl.textContent : '';
+  }
+  
   const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
