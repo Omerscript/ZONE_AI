@@ -688,7 +688,7 @@ input, textarea { font-family: inherit; }
           <div class="login-step active" id="ls-choice">
             <div class="login-actions">
               <button class="login-btn accent" onclick="openSignup()"><i class="fas fa-user-plus"></i> إنشاء حساب جديد</button>
-              <button class="login-btn" onclick="openLoginForExisting()"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
+              <button class="login-btn" onclick="openLoginDirect()"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
               <button class="login-back" onclick="closeLogin()">← إلغاء</button>
             </div>
           </div>
@@ -1301,6 +1301,8 @@ function _openSettingsDirect() {
 
 /* LOGIN */
 function openLogin() {
+  closeGuestHint();
+  closeSettings();
   document.getElementById('login-page').classList.add('show');
   showStep('choice');
   clearLoginMsgs();
@@ -1322,10 +1324,18 @@ function openSignup() {
 }
 
 function openLoginForExisting() {
+  closeGuestHint();
   document.getElementById('login-page').classList.add('show');
   clearLoginMsgs();
   document.getElementById('login-subtitle').textContent = 'اختر طريقة الدخول';
   showStep('choice');
+}
+function openLoginDirect() {
+  closeGuestHint();
+  document.getElementById('login-page').classList.add('show');
+  clearLoginMsgs();
+  document.getElementById('login-subtitle').textContent = 'تسجيل الدخول';
+  showStep('login-email');
 }
 
 function closeLogin() {
